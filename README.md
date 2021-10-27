@@ -1,5 +1,7 @@
 # carexporter
 
-This is a resource intented to get all vehicle model names and vehicle names and add them to FiveM
+This is a simple resource for exporting vehicle/tires names so they're not NULL when in game.
 
-It's as simple as opening exporter and executing 'exporter.exe', it is written in rust and all the code is readily available (sorry for how bad it is :P)
+All you have to do is go to exporter -> and double click 'exporter.exe' or you can compile it from the source (if you know how).
+
+This resource doesn't have any support.
