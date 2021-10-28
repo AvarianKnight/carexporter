@@ -4,22 +4,41 @@ use std::io::{stdin, stdout, Read, Write};
 use std::{fs, io};
 use std::path::Path;
 use std::fs::{DirEntry, File};
-use serde_derive::{Serialize};
+use serde_derive::Serialize;
 use std::time::Instant;
 use std::sync::{Mutex};
 
 #[macro_use]
 extern crate lazy_static;
 
+lazy_static! {
+    pub static ref MODEL_DATA: Mutex<Vec<Model>> = Mutex::new(Vec::new());
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
-    model_name: String,
-    game_name: String
+    model_name: Option<String>,
+    game_name: Option<String>
 }
 
-lazy_static! {
-    pub static ref MODEL_DATA: Mutex<Vec<Model>> = Mutex::new(Vec::new());
+impl Model {
+    pub fn new() -> Self {
+        Self {
+            model_name: None,
+            game_name: None
+        }
+    }
+    fn clone(&self) -> Model {
+        Model {
+            model_name: self.model_name.clone(),
+            game_name: self.game_name.clone()
+        }
+    }
+    fn clear(&mut self) {
+        self.model_name = None;
+        self.game_name = None;
+    }
 }
 
 fn pause() {
