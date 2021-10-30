@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use std::{env};
 use native_dialog::{FileDialog};
-use eframe::egui::Vec2;
+use eframe::egui::{Vec2, Color32};
 
 pub struct CarExporterUi {
     first_frame: bool,
@@ -24,7 +24,7 @@ impl Default for CarExporterUi {
 impl epi::App for CarExporterUi {
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if self.first_frame {
-            frame.set_window_size(Vec2::new(800.0, 225.0));
+            frame.set_window_size(Vec2::new(800.0, 250.0));
             self.first_frame = false;
         }
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -67,11 +67,13 @@ impl epi::App for CarExporterUi {
             }
 
             if self.finished {
-                ui.add(egui::Label::new("Successfully exported"));
+                ui.add_space(space);
+                ui.add(egui::Label::new("Successfully exported").text_color(Color32::GREEN));
             }
 
             if self.was_canceled {
-                ui.add(egui::Label::new("User canceled"));
+                ui.add_space(space);
+                ui.add(egui::Label::new("User canceled").text_color(Color32::RED));
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
