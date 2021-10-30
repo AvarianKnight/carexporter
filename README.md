@@ -4,8 +4,8 @@ This is a simple resource for exporting vehicle/tires names so they're not NULL 
 
 All you have to do is go to exporter -> and double click 'exporter.exe' or you can compile it from the source (if you know how).
 
-**This resource needs to be in your home directory, not in a subdirectory like [local]**
+This will go through the directories you selected to generate the game data from the meta files, this can be instant, or take multiple minutes depending on how many cars you have.
 
-This will go through your entire resource folder and search for vehicles.meta and carcols.meta and extract names from the xml, this will also print any errors that your files have.
+You can also run this resource in 'headless' mode, just change the `headless.bat` path to the one you want it to run in.
 
 This resource doesn't have any support.

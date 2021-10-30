@@ -1,12 +1,12 @@
 mod vehicles;
 mod carcols;
-use std::io::{stdin, stdout, Read, Write};
-use std::{fs, io};
-use std::path::Path;
+mod ui;
+use std::{fs, io, env};
+use std::path::{Path, PathBuf};
 use std::fs::{DirEntry, File};
 use serde_derive::Serialize;
-use std::time::Instant;
 use std::sync::{Mutex};
+use std::time::Instant;
 
 #[macro_use]
 extern crate lazy_static;
@@ -41,34 +41,47 @@ impl Model {
     }
 }
 
-fn pause() {
-    let mut stdout = stdout();
-    stdout.write(b"Press Enter to continue...").unwrap();
-    stdout.flush().unwrap();
-    stdin().read(&mut [0]).unwrap();
-}
-
 #[allow(unused_must_use)]
-fn main() -> io::Result<()> {
+pub fn handle_files(path: PathBuf) {
     let start = Instant::now();
-    let entries = fs::read_dir("../../")?
-        .map(|res| res.map(|e| e.path()))
-        .collect::<Result<Vec<_>, io::Error>>()?;
+    // TODO: Proper error handling
+    let entries = fs::read_dir(path.as_path()).unwrap()
+        .map(|res| res.map(|e| {
+            e.path()
+        }))
+        .collect::<Result<Vec<_>, io::Error>>().unwrap();
 
     for entry in entries.iter() {
-        visit_dirs(entry, &handle_file);
+        crate::visit_dirs(entry, &crate::handle_file);
     }
 
     println!("Finished executing, {:.2?} time elapsed", start.elapsed());
 
-    let val = serde_json::to_string::<Vec<Model>>(MODEL_DATA.lock().unwrap().as_ref()).unwrap();
+    let val = serde_json::to_string::<Vec<Model>>(crate::MODEL_DATA.lock().unwrap().as_ref()).unwrap();
 
     File::create("data.json");
 
-    fs::write("data.json", val);
+    fs::write("data.json", val).unwrap();
+}
 
-    pause();
-    Ok(())
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut is_headless: bool = false;
+    for arg in args.into_iter() {
+        println!("arg: {}", arg);
+        if arg == "-path" {
+            is_headless = true
+        } else if is_headless && arg != "exporter.exe"{
+            let path = Path::new(&arg);
+            handle_files(PathBuf::from(path));
+            return;
+        }
+    }
+
+    let app = ui::CarExporterUi::default();
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(Box::new(app), native_options);
 }
 
 fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
@@ -87,10 +100,12 @@ fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
 }
 
 fn handle_file(dir: &DirEntry) {
-    let entry_name = dir.path().into_os_string().into_string().unwrap();
+    let entry_name = dir.file_name().into_string().unwrap();
+    let path = &dir.path();
+    // We don't need to send the entire direntry
     if entry_name.contains("vehicles.meta") {
-        vehicles::handle_vehicles(dir);
+        vehicles::handle_vehicles(path);
     } else if entry_name.contains("carcols.meta") {
-        carcols::handle_carcols(dir);
+        carcols::handle_carcols(path);
     }
 }
