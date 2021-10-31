@@ -5,6 +5,14 @@ use quick_xml::Reader;
 use crate::{Model, MODEL_DATA};
 use std::path::{PathBuf};
 
+fn handle_model_push(mut model: Model) -> Model {
+    if model.model_name.is_some() && model.game_name.is_some() {
+        MODEL_DATA.lock().unwrap().push(model.clone());
+        model.clear();
+    }
+    model
+}
+
 pub(crate) fn handle_data(path: &PathBuf) {
     let file = File::open(path).unwrap();
     let mut file_string = String::new();
@@ -36,16 +44,12 @@ pub(crate) fn handle_data(path: &PathBuf) {
                     "gameName" => { model.game_name = Some(chars) },
                     _ => {}
                 }
+                model = handle_model_push(model);
                 data.clear();
             },
             Ok(Event::Eof) => break,
-            Err(e) => println!("Error in file {} {}: {:?}", path.display() ,reader.buffer_position(), e),
+            Err(e) => println!("Error in file {} {}: {:?}", path.display(), reader.buffer_position(), e),
             _ => (),
-        }
-
-        if model.model_name.is_some() && model.game_name.is_some() {
-            MODEL_DATA.lock().unwrap().push(model.clone());
-            model.clear();
         }
 
         buf.clear();

@@ -109,7 +109,8 @@ fn main() {
                 false => env::current_dir().unwrap().join(path_orig)
             };
 
-            handle_files(PathBuf::from(path));
+            let time_taken = handle_files(PathBuf::from(path));
+            println!("Finished execution in {:.2?} ", time_taken);
             return;
         }
     }
