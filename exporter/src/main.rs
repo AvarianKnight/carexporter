@@ -3,10 +3,11 @@ mod carcols;
 mod ui;
 use std::{fs, io, env};
 use std::path::{Path, PathBuf};
-use std::fs::{DirEntry, File};
+use std::fs::{File};
 use serde_derive::Serialize;
 use std::sync::{Mutex};
 use std::time::Instant;
+use walkdir::{DirEntry, WalkDir};
 
 #[macro_use]
 extern crate lazy_static;
@@ -41,19 +42,29 @@ impl Model {
     }
 }
 
+fn should_walk_dir(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| {
+            if entry.path().is_dir() {
+                !s.contains("node_modules") && !s.starts_with(".")
+            } else {
+                s.ends_with(".meta") || s.ends_with(".xml")
+            }
+        })
+        .unwrap_or(false)
+}
+
 #[allow(unused_must_use)]
 pub fn handle_files(path: PathBuf) {
     let start = Instant::now();
-    // TODO: Proper error handling
-    let entries = fs::read_dir(path.as_path()).unwrap()
-        .map(|res| res.map(|e| {
-            e.path()
-        }))
-        .collect::<Result<Vec<_>, io::Error>>().unwrap();
 
-    for entry in entries.iter() {
-        crate::visit_dirs(entry, &crate::handle_file);
-    }
+    WalkDir::new(path.as_path())
+        .into_iter()
+        .filter_entry(|e| should_walk_dir(e))
+        .filter_map(|v| v.ok())
+        .for_each(|dir| handle_file(dir));
 
     println!("Finished executing, {:.2?} time elapsed", start.elapsed());
 
@@ -64,6 +75,23 @@ pub fn handle_files(path: PathBuf) {
     fs::write("data.json", val).unwrap();
 }
 
+fn jooat(string: String) -> u32 {
+    let lower_str = string.to_lowercase();
+    let char_iter = lower_str.chars();
+    let mut hash: u32 = 0;
+
+    for char in char_iter {
+        hash = hash.overflowing_add(u32::from(char as u8)).0;
+        hash = hash.overflowing_add(hash.overflowing_shl(10).0).0;
+        hash ^= hash.overflowing_shr(6).0;
+    }
+
+    hash = hash.overflowing_add(hash.overflowing_shl(3).0).0;
+    hash ^= hash.overflowing_shr(11).0;
+    hash = hash.overflowing_add(hash.overflowing_shl(15).0).0;
+
+    hash
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -84,24 +112,10 @@ fn main() {
     eframe::run_native(Box::new(app), native_options);
 }
 
-fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                visit_dirs(&path, cb)?;
-            } else {
-                cb(&entry);
-            }
-        }
-    }
-    Ok(())
-}
-
-fn handle_file(dir: &DirEntry) {
-    let entry_name = dir.file_name().into_string().unwrap();
-    let path = &dir.path();
+fn handle_file(dir: DirEntry) {
+    let entry_name = dir.file_name().to_str().unwrap();
+    // let entry_name = dir.file_name().into_string().unwrap();
+    let path = &dir.path().to_path_buf();
     // We don't need to send the entire direntry
     if entry_name.contains("vehicles.meta") {
         vehicles::handle_vehicles(path);
