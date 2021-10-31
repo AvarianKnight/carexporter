@@ -2,20 +2,21 @@ use eframe::{egui, epi};
 use std::{env};
 use native_dialog::{FileDialog};
 use eframe::egui::{Vec2, Color32};
+use std::time::Duration;
 
 pub struct CarExporterUi {
+    time_taken: Duration,
     first_frame: bool,
     finished: bool,
-    processing: bool,
     was_canceled: bool,
 }
 
 impl Default for CarExporterUi {
     fn default() -> Self {
         Self {
+            time_taken: Duration::new(0, 0),
             first_frame: true,
             finished: false,
-            processing: false,
             was_canceled: false
         }
     }
@@ -38,13 +39,8 @@ impl epi::App for CarExporterUi {
             ui.heading("After clicking the directory the UI will freeze for a while, this is normal and expected, how long it freezes depends on the amount of vehicles you have");
             ui.add_space(space);
 
-            if self.processing {
-                ui.add(egui::Label::new("Processing..."));
-
-            }
-
             // TODO: Non blocking
-            if ui.button("Open File").clicked() && !self.processing {
+            if ui.button("Open File").clicked() {
                 self.was_canceled = false;
                 self.finished = false;
                 let path = FileDialog::new()
@@ -60,7 +56,7 @@ impl epi::App for CarExporterUi {
                     }
                 };
 
-                crate::handle_files(path);
+                self.time_taken = crate::handle_files(path);
 
                 self.finished = true;
 
@@ -68,7 +64,7 @@ impl epi::App for CarExporterUi {
 
             if self.finished {
                 ui.add_space(space);
-                ui.add(egui::Label::new("Successfully exported").text_color(Color32::GREEN));
+                ui.add(egui::Label::new(format!("Successfully exported in {:.2?}", self.time_taken)).text_color(Color32::GREEN));
             }
 
             if self.was_canceled {

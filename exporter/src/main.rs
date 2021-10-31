@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::fs::{File};
 use serde_derive::Serialize;
 use std::sync::{Mutex};
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use jwalk::{WalkDirGeneric};
 
 #[macro_use]
@@ -42,7 +42,7 @@ impl Model {
 }
 
 #[allow(unused_must_use)]
-pub fn handle_files(path: PathBuf) {
+pub fn handle_files(path: PathBuf) -> Duration {
     let start = Instant::now();
 
     let walk_dir = WalkDirGeneric::<(usize,bool)>::new(path)
@@ -65,16 +65,15 @@ pub fn handle_files(path: PathBuf) {
 
     for entry in walk_dir {
         let entry = entry.unwrap();
-        handle_file(&entry.path(), entry.file_name.into_string().unwrap());
+        handle_file(&entry.path(), entry.file_name.to_str().unwrap());
     }
-
-    println!("Finished executing, {:.2?} time elapsed", start.elapsed());
 
     let val = serde_json::to_string::<Vec<Model>>(crate::MODEL_DATA.lock().unwrap().as_ref()).unwrap();
 
     File::create("data.json");
 
     fs::write("data.json", val).unwrap();
+    start.elapsed()
 }
 
 #[allow(dead_code)]
@@ -120,7 +119,7 @@ fn main() {
     eframe::run_native(Box::new(app), native_options);
 }
 
-fn handle_file(path: &PathBuf, entry_name: String) {
+fn handle_file(path: &PathBuf, entry_name: &str) {
     if entry_name.contains("vehicles.meta") || entry_name.contains("carcols.meta") {
         data_handler::handle_data(path);
     }
