@@ -1,13 +1,14 @@
 mod vehicles;
 mod carcols;
 mod ui;
-use std::{fs, io, env};
+use std::{fs, env};
 use std::path::{Path, PathBuf};
 use std::fs::{File};
 use serde_derive::Serialize;
 use std::sync::{Mutex};
 use std::time::Instant;
-use walkdir::{DirEntry, WalkDir};
+use std::cmp::Ordering;
+use jwalk::{WalkDirGeneric};
 
 #[macro_use]
 extern crate lazy_static;
@@ -42,29 +43,38 @@ impl Model {
     }
 }
 
-fn should_walk_dir(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| {
-            if entry.path().is_dir() {
-                !s.contains("node_modules") && !s.starts_with(".")
-            } else {
-                s.ends_with(".meta") || s.ends_with(".xml")
-            }
-        })
-        .unwrap_or(false)
-}
-
 #[allow(unused_must_use)]
 pub fn handle_files(path: PathBuf) {
     let start = Instant::now();
 
-    WalkDir::new(path.as_path())
-        .into_iter()
-        .filter_entry(|e| should_walk_dir(e))
-        .filter_map(|v| v.ok())
-        .for_each(|dir| handle_file(dir));
+    let walk_dir = WalkDirGeneric::<(usize,bool)>::new(path)
+        .process_read_dir(|_depth, _path, _read_dir_state, children| {
+            children.sort_by(|a, b| match (a, b) {
+                (Ok(a), Ok(b)) => a.file_name.cmp(&b.file_name),
+                (Ok(_), Err(_)) => Ordering::Less,
+                (Err(_), Ok(_)) => Ordering::Greater,
+                (Err(_), Err(_)) => Ordering::Equal,
+            });
+            children.retain(|dir_entry_result| {
+                dir_entry_result.as_ref().map(|dir_entry| {
+                    dir_entry.file_name
+                        .to_str()
+                        .map(|s| {
+                            if dir_entry.path().is_dir() {
+                                !s.contains("node_modules") && !s.starts_with(".")
+                            } else {
+                                s.ends_with(".meta") || s.ends_with(".xml")
+                            }
+                        })
+                        .unwrap_or(false)
+                }).unwrap_or(false)
+            });
+        });
+
+    for entry in walk_dir {
+        let entry = entry.unwrap();
+        handle_file(&entry.path(), entry.file_name.into_string().unwrap());
+    }
 
     println!("Finished executing, {:.2?} time elapsed", start.elapsed());
 
@@ -75,6 +85,7 @@ pub fn handle_files(path: PathBuf) {
     fs::write("data.json", val).unwrap();
 }
 
+#[allow(dead_code)]
 fn jooat(string: String) -> u32 {
     let lower_str = string.to_lowercase();
     let char_iter = lower_str.chars();
@@ -97,11 +108,16 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let mut is_headless: bool = false;
     for arg in args.into_iter() {
-        println!("arg: {}", arg);
         if arg == "-path" {
             is_headless = true
-        } else if is_headless && arg != "exporter.exe"{
-            let path = Path::new(&arg);
+        } else if is_headless && arg != "exporter.exe" {
+            let path_orig = Path::new(&arg);
+
+            let path = match path_orig.is_absolute() {
+                true => path_orig.to_path_buf(),
+                false => env::current_dir().unwrap().join(path_orig)
+            };
+
             handle_files(PathBuf::from(path));
             return;
         }
@@ -112,10 +128,8 @@ fn main() {
     eframe::run_native(Box::new(app), native_options);
 }
 
-fn handle_file(dir: DirEntry) {
-    let entry_name = dir.file_name().to_str().unwrap();
+fn handle_file(path: &PathBuf, entry_name: String) {
     // let entry_name = dir.file_name().into_string().unwrap();
-    let path = &dir.path().to_path_buf();
     // We don't need to send the entire direntry
     if entry_name.contains("vehicles.meta") {
         vehicles::handle_vehicles(path);
