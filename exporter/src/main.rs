@@ -1,5 +1,4 @@
-mod vehicles;
-mod carcols;
+mod data_handler;
 mod ui;
 use std::{fs, env};
 use std::path::{Path, PathBuf};
@@ -7,7 +6,6 @@ use std::fs::{File};
 use serde_derive::Serialize;
 use std::sync::{Mutex};
 use std::time::Instant;
-use std::cmp::Ordering;
 use jwalk::{WalkDirGeneric};
 
 #[macro_use]
@@ -49,12 +47,6 @@ pub fn handle_files(path: PathBuf) {
 
     let walk_dir = WalkDirGeneric::<(usize,bool)>::new(path)
         .process_read_dir(|_depth, _path, _read_dir_state, children| {
-            children.sort_by(|a, b| match (a, b) {
-                (Ok(a), Ok(b)) => a.file_name.cmp(&b.file_name),
-                (Ok(_), Err(_)) => Ordering::Less,
-                (Err(_), Ok(_)) => Ordering::Greater,
-                (Err(_), Err(_)) => Ordering::Equal,
-            });
             children.retain(|dir_entry_result| {
                 dir_entry_result.as_ref().map(|dir_entry| {
                     dir_entry.file_name
@@ -129,11 +121,7 @@ fn main() {
 }
 
 fn handle_file(path: &PathBuf, entry_name: String) {
-    // let entry_name = dir.file_name().into_string().unwrap();
-    // We don't need to send the entire direntry
-    if entry_name.contains("vehicles.meta") {
-        vehicles::handle_vehicles(path);
-    } else if entry_name.contains("carcols.meta") {
-        carcols::handle_carcols(path);
+    if entry_name.contains("vehicles.meta") || entry_name.contains("carcols.meta") {
+        data_handler::handle_data(path);
     }
 }

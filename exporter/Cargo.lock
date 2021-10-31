@@ -572,10 +572,10 @@ dependencies = [
  "jwalk",
  "lazy_static",
  "native-dialog",
+ "quick-xml",
  "serde",
  "serde_derive",
  "serde_json",
- "xml-rs",
 ]
 
 [[package]]

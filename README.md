@@ -9,10 +9,3 @@ This will go through the directories you selected to generate the game data from
 You can also run this resource in 'headless' mode, just change the `headless.bat` path to the one you want it to run in.
 
 This resource doesn't have any support.
-
-
-This is just some stuff I want to implement in the future, as this was the primary thing that I've learnt rust from
-## TODO's
-- Maybe switch to quick-xml, might not make much of a difference as most of the performance issues currently are from seeking files.
-- Implement tokio for async file system operations, will require signaling between threads.
-- Cleanup code as I learn more
