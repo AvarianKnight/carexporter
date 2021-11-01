@@ -14,7 +14,13 @@ fn handle_model_push(mut model: Model) -> Model {
 }
 
 pub(crate) fn handle_data(path: &PathBuf) {
-    let file = File::open(path).unwrap();
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(err) => {
+            println!("Failed to open file {}, with error {}", path.display(), err);
+            return
+        }
+    };
     let mut file_string = String::new();
     BufReader::new(file).read_to_string(&mut file_string).unwrap();
 

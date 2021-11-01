@@ -1,23 +1,47 @@
 use eframe::{egui, epi};
-use std::{env};
+use std::{env, thread};
 use native_dialog::{FileDialog};
 use eframe::egui::{Vec2, Color32};
 use std::time::Duration;
+use std::sync::{mpsc};
+use crate::{handle_files};
+use std::sync::mpsc::{Receiver};
+
+pub enum DataState {
+    NoData,
+    Processing,
+    Finished
+}
+
+pub struct DataTransfer {
+    pub(crate) state: DataState,
+    pub(crate) duration: Option<Duration>,
+    pub(crate) file_count: Option<i32>,
+    pub(crate) dir_count: Option<i32>
+}
 
 pub struct CarExporterUi {
-    time_taken: Duration,
     first_frame: bool,
-    finished: bool,
     was_canceled: bool,
+    processing: bool,
+    finished: bool,
+    file_count: i32,
+    directory_count: i32,
+    duration: Duration,
+    receiver: Option<Receiver<DataTransfer>>
 }
 
 impl Default for CarExporterUi {
     fn default() -> Self {
         Self {
-            time_taken: Duration::new(0, 0),
             first_frame: true,
+            was_canceled: false,
+            processing: false,
             finished: false,
-            was_canceled: false
+            file_count: 0,
+            directory_count: 0,
+            duration: Default::default(),
+            receiver: None
         }
     }
 }
@@ -36,11 +60,9 @@ impl epi::App for CarExporterUi {
             ui.add_space(space);
             ui.heading("Click the file below and click the resource that has your vehicles, or select resources to go through each of them");
             ui.add_space(space);
-            ui.heading("After clicking the directory the UI will freeze for a while, this is normal and expected, how long it freezes depends on the amount of vehicles you have");
-            ui.add_space(space);
 
-            // TODO: Non blocking
-            if ui.button("Open File").clicked() {
+            if ui.button("Open File").clicked() && !self.processing {
+                self.processing = true;
                 self.was_canceled = false;
                 self.finished = false;
                 let path = FileDialog::new()
@@ -52,19 +74,53 @@ impl epi::App for CarExporterUi {
                     Some(actual_path) => actual_path,
                     None => {
                         self.was_canceled = true;
+                        self.processing = false;
                         return
                     }
                 };
 
-                self.time_taken = crate::handle_files(path);
+                let (tx, rx) = mpsc::channel();
 
-                self.finished = true;
+                self.receiver = Some(rx);
 
+                thread::spawn(move || {
+                    handle_files(path, tx);
+                });
+            }
+
+            if self.receiver.is_some() && self.processing {
+                let data = match self.receiver.as_ref().unwrap().try_recv() {
+                    Ok(transfer_data) => transfer_data,
+                    Err(_) => DataTransfer {
+                        state: DataState::NoData,
+                        duration: None,
+                        file_count: None,
+                        dir_count: None
+                    }
+                };
+
+                match data.state {
+                    DataState::Processing => {
+                        self.file_count = data.file_count.unwrap();
+                        self.directory_count = data.dir_count.unwrap();
+                    }
+                    DataState::Finished => {
+                        self.processing = false;
+                        self.finished = true;
+                        self.duration = data.duration.unwrap();
+                    }
+                    _ => {}
+                };
+            }
+
+            if self.processing {
+                ui.add_space(space);
+                ui.add(egui::Label::new(format!("Exporting data, {} directories traversed with {} files exported so far.", self.directory_count, self.file_count)).text_color(Color32::GREEN));
             }
 
             if self.finished {
                 ui.add_space(space);
-                ui.add(egui::Label::new(format!("Successfully exported in {:.2?}", self.time_taken)).text_color(Color32::GREEN));
+                ui.add(egui::Label::new(format!("Successfully exported {} files in {:.2?}", self.file_count, self.duration)).text_color(Color32::GREEN));
             }
 
             if self.was_canceled {
