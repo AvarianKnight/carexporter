@@ -134,9 +134,10 @@ fn jooat(string: String) -> u32 {
     hash
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut is_headless: bool = false;
+// Compiler says that duration is unused even though it is.. weirdchamp
+#[allow(unused_assignments)]
+fn handle_headless(args: Vec<String>) -> bool {
+    let mut is_headless = false;
     for arg in args.into_iter() {
         if arg == "-path" {
             is_headless = true
@@ -178,10 +179,18 @@ fn main() {
             }
 
             println!("Finished execution in {:.2?}, traveled {} directories and parsed {} xml/meta files", duration, dir_count, file_count);
-            return;
+            return true
         }
     }
+    false
+}
 
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let is_headless: bool = handle_headless(args);
+    if is_headless {
+        return;
+    }
     let app = ui::CarExporterUi::default();
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(Box::new(app), native_options);
