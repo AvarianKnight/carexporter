@@ -27,7 +27,6 @@ pub(crate) fn handle_data(path: &PathBuf) {
     let mut data = String::new();
     let mut model = Model::new();
     let mut reader = Reader::from_str(&*file_string);
-    reader.trim_text(true);
 
     let mut buf = Vec::new();
     loop {

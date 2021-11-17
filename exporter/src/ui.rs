@@ -7,9 +7,11 @@ use std::sync::{mpsc};
 use crate::{handle_files};
 use std::sync::mpsc::{Receiver};
 
+// this is all pretty bad, shield ye eyes.
 pub enum DataState {
     NoData,
     Processing,
+    WritingFile,
     Finished
 }
 
@@ -21,9 +23,11 @@ pub struct DataTransfer {
 }
 
 pub struct CarExporterUi {
+    can_open_file: bool,
     first_frame: bool,
     was_canceled: bool,
     processing: bool,
+    writing_file: bool,
     finished: bool,
     file_count: i32,
     directory_count: i32,
@@ -34,9 +38,11 @@ pub struct CarExporterUi {
 impl Default for CarExporterUi {
     fn default() -> Self {
         Self {
+            can_open_file: true,
             first_frame: true,
             was_canceled: false,
             processing: false,
+            writing_file: false,
             finished: false,
             file_count: 0,
             directory_count: 0,
@@ -61,7 +67,8 @@ impl epi::App for CarExporterUi {
             ui.heading("Click the file below and click the resource that has your vehicles, or select resources to go through each of them");
             ui.add_space(space);
 
-            if ui.button("Open File").clicked() && !self.processing {
+            if ui.button("Open File").clicked() && self.can_open_file {
+                self.can_open_file = false;
                 self.processing = true;
                 self.was_canceled = false;
                 self.finished = false;
@@ -88,7 +95,7 @@ impl epi::App for CarExporterUi {
                 });
             }
 
-            if self.receiver.is_some() && self.processing {
+            if self.receiver.is_some() && !self.can_open_file {
                 let data = match self.receiver.as_ref().unwrap().try_recv() {
                     Ok(transfer_data) => transfer_data,
                     Err(_) => DataTransfer {
@@ -104,10 +111,15 @@ impl epi::App for CarExporterUi {
                         self.file_count = data.file_count.unwrap();
                         self.directory_count = data.dir_count.unwrap();
                     }
-                    DataState::Finished => {
+                    DataState::WritingFile => {
+                        self.writing_file = true;
                         self.processing = false;
+                    }
+                    DataState::Finished => {
                         self.finished = true;
+                        self.writing_file = false;
                         self.duration = data.duration.unwrap();
+                        self.can_open_file = true;
                     }
                     _ => {}
                 };
@@ -118,9 +130,14 @@ impl epi::App for CarExporterUi {
                 ui.add(egui::Label::new(format!("Exporting data, {} directories traversed with {} files exported so far.", self.directory_count, self.file_count)).text_color(Color32::GREEN));
             }
 
+            if self.writing_file {
+                ui.add_space(space);
+                ui.add(egui::Label::new(format!("Writing to Json.")).text_color(Color32::GREEN));
+            }
+
             if self.finished {
                 ui.add_space(space);
-                ui.add(egui::Label::new(format!("Successfully exported {} files in {:.2?}", self.file_count, self.duration)).text_color(Color32::GREEN));
+                ui.add(egui::Label::new(format!("Successfully searched {} directories and exported {} files in {:.2?}", self.directory_count, self.file_count, self.duration)).text_color(Color32::GREEN));
             }
 
             if self.was_canceled {
@@ -142,7 +159,7 @@ impl epi::App for CarExporterUi {
     }
 
     /// Called once before the first frame.
-    /// Hint: No its not
+    /// We would set the frame size here but it doesn't look like we can,
     fn setup(
         &mut self,
         _ctx: &egui::CtxRef,

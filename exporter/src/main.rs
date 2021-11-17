@@ -100,8 +100,15 @@ pub fn handle_files(path: PathBuf, tx: Sender<DataTransfer>) {
         dir_count: Some(*dir_count.lock().unwrap()),
     });
 
-    let val =
-        serde_json::to_string::<Vec<Model>>(crate::MODEL_DATA.lock().unwrap().as_ref()).unwrap();
+
+    tx.send(DataTransfer {
+        state: DataState::WritingFile,
+        duration: None,
+        file_count: None,
+        dir_count: None,
+    });
+
+    let val = serde_json::to_string::<Vec<Model>>(crate::MODEL_DATA.lock().unwrap().as_ref()).unwrap();
 
     File::create("data.json");
 
